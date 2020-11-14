@@ -27,7 +27,7 @@ proc renderHeader(tweet: Tweet; retweet: string; prefs: Prefs): VNode =
 
     tdiv(class="tweet-header"):
       a(class="tweet-avatar", href=("/" & tweet.profile.username)):
-        var size = "_normal"
+        var size = "_bigger"
         if not prefs.autoplayGifs and tweet.profile.userpic.endsWith("gif"):
           size = "_400x400"
         genImg(tweet.profile.getUserpic(size), class="avatar")
@@ -185,6 +185,7 @@ proc renderStats(stats: TweetStats; views: string): VNode =
   buildHtml(tdiv(class="tweet-stats")):
     span(class="tweet-stat"): icon "comment", insertSep($stats.replies, ',')
     span(class="tweet-stat"): icon "retweet", insertSep($stats.retweets, ',')
+    span(class="tweet-stat"): icon "quote", insertSep($stats.quotes, ',')
     span(class="tweet-stat"): icon "heart", insertSep($stats.likes, ',')
     if views.len > 0:
       span(class="tweet-stat"): icon "play", insertSep(views, ',')
@@ -245,7 +246,7 @@ proc renderQuote(quote: Tweet; prefs: Prefs; path: string): VNode =
       renderReply(quote)
 
     if quote.text.len > 0:
-      tdiv(class="quote-text"):
+      tdiv(class="quote-text", dir="auto"):
         verbatim replaceUrl(quote.text, prefs)
 
     if quote.hasThread:
@@ -299,7 +300,11 @@ proc renderTweet*(tweet: Tweet; prefs: Prefs; path: string; class=""; index=0;
          (tweet.reply.len > 1 or tweet.reply[0] != tweet.profile.username):
         renderReply(tweet)
 
-      tdiv(class="tweet-content media-body", dir="auto"):
+      var tweetClass = "tweet-content media-body"
+      if prefs.bidiSupport:
+        tweetClass &= " tweet-bidi"
+
+      tdiv(class=tweetClass, dir="auto"):
         verbatim replaceUrl(tweet.text, prefs) & renderLocation(tweet)
 
       if tweet.attribution.isSome:

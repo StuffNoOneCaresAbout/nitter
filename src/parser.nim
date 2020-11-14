@@ -46,7 +46,7 @@ proc parseGraphProfile*(js: JsonNode; username: string): Profile =
 
   let user = js{"data", "user", "legacy"}
   let id = js{"data", "user", "rest_id"}.getStr
-  parseProfile(user, id)
+  result = parseProfile(user, id)
 
 proc parseGraphList*(js: JsonNode): List =
   if js.isNull: return
@@ -59,7 +59,7 @@ proc parseGraphList*(js: JsonNode): List =
 
   result = List(
     id: list{"id_str"}.getStr,
-    name: list{"name"}.getStr,
+    name: list{"name"}.getStr.replace(' ', '-'),
     username: list{"user", "legacy", "screen_name"}.getStr,
     userId: list{"user", "legacy", "id_str"}.getStr,
     description: list{"description"}.getStr,
@@ -115,6 +115,7 @@ proc parseVideo(js: JsonNode): Video =
     available: js{"ext_media_availability", "status"}.getStr == "available",
     title: js{"ext_alt_text"}.getStr,
     durationMs: js{"duration_millis"}.getInt
+    # playbackType: mp4
   )
 
   with title, js{"additional_media_info", "title"}:
@@ -229,6 +230,7 @@ proc parseTweet(js: JsonNode): Tweet =
       replies: js{"reply_count"}.getInt,
       retweets: js{"retweet_count"}.getInt,
       likes: js{"favorite_count"}.getInt,
+      quotes: js{"quote_count"}.getInt
     )
   )
 
@@ -321,10 +323,13 @@ proc parseThread(js: JsonNode; global: GlobalObjects): tuple[thread: Chain, self
       let
         cursor = content{"timelineCursor"}
         more = cursor{"displayTreatment", "actionText"}.getStr
-      result.thread.more = parseInt(more[0 ..< more.find(" ")])
       result.thread.cursor = cursor{"value"}.getStr
+      if more.len > 0 and more[0].isDigit():
+        result.thread.more = parseInt(more[0 ..< more.find(" ")])
+      else:
+        result.thread.more = -1
     else:
-      var tweet = finalizeTweet(global, entry.getId)
+      var tweet = finalizeTweet(global, t.getEntryId)
       if not tweet.available:
         tweet.tombstone = getTombstone(content{"tombstone"})
       result.thread.content.add tweet
@@ -339,8 +344,8 @@ proc parseConversation*(js: JsonNode; tweetId: string): Conversation =
 
   for e in instructions[0]{"addEntries", "entries"}:
     let entry = e{"entryId"}.getStr
-    if "tweet" in entry:
-      let tweet = finalizeTweet(global, entry.getId)
+    if "tweet" in entry or "tombstone" in entry:
+      let tweet = finalizeTweet(global, e.getEntryId)
       if $tweet.id != tweetId:
         result.before.content.add tweet
       else:
@@ -404,8 +409,8 @@ proc parseTimeline*(js: JsonNode; after=""): Timeline =
 
   for e in instructions[0]{"addEntries", "entries"}:
     let entry = e{"entryId"}.getStr
-    if "tweet" in entry or "sq-I-t" in entry:
-      let tweet = finalizeTweet(global, entry.getId)
+    if "tweet" in entry or "sq-I-t" in entry or "tombstone" in entry:
+      let tweet = finalizeTweet(global, e.getEntryId)
       if not tweet.available: continue
       result.content.add tweet
     elif "cursor-top" in entry:

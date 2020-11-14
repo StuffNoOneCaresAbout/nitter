@@ -58,7 +58,6 @@ type
 
   Video* = object
     videoId*: string
-    contentId*: string
     durationMs*: int
     url*: string
     thumb*: string
@@ -140,6 +139,7 @@ type
     replies*: int
     retweets*: int
     likes*: int
+    quotes*: int
 
   Tweet* = ref object
     id*: int64

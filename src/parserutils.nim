@@ -15,7 +15,7 @@ template notNull*(js: JsonNode): bool = js.kind != JNull
 template `?`*(js: JsonNode): untyped =
   let j = js
   if j.isNull: return
-  else: j
+  j
 
 template `with`*(ident, value, body): untyped =
   block:
@@ -54,6 +54,18 @@ proc getId*(js: JsonNode): int64 {.inline.} =
   of JString: return parseBiggestInt(js.getStr("0"))
   of JInt: return js.getBiggestInt()
   else: return 0
+
+proc getEntryId*(js: JsonNode): string {.inline.} =
+  let entry = js{"entryId"}.getStr
+  if entry.len == 0: return
+
+  if "tweet" in entry or "sq-I-t" in entry:
+    return entry.getId
+  elif "tombstone" in entry:
+    return js{"content", "item", "content", "tombstone", "tweet", "id"}.getStr
+  else:
+    echo "unknown entry: ", entry
+    return
 
 template getStrVal*(js: JsonNode; default=""): string =
   js{"string_value"}.getStr(default)
